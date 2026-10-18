@@ -1,0 +1,5 @@
+rootProject.name = "fitz-demo"
+
+if (file("../fitz").exists()) {
+    includeBuild("../fitz")
+}

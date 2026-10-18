@@ -1,0 +1,50 @@
+plugins {
+    id 'java'
+    id 'groovy'
+    id 'war'
+}
+
+group 'dfb'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+ext {
+    spockVersion = '2.5-groovy-6.0'
+    lombokVersion = '1.18.48'
+}
+
+java {
+    sourceCompatibility = '27'
+    targetCompatibility = '27'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+dependencies {
+    implementation('dfb:fitz:1.0-SNAPSHOT')
+
+    compileOnly("org.projectlombok:lombok:${lombokVersion}")
+    annotationProcessor("org.projectlombok:lombok:${lombokVersion}")
+    testCompileOnly("org.projectlombok:lombok:${lombokVersion}")
+    testAnnotationProcessor("org.projectlombok:lombok:${lombokVersion}")
+
+    runtimeOnly('ch.qos.logback:logback-classic:1.6.5')
+
+    compileOnly('jakarta.servlet:jakarta.servlet-api:6.1.0')
+    testImplementation('jakarta.servlet:jakarta.servlet-api:6.1.0')
+
+    testImplementation("org.spockframework:spock-core:${spockVersion}")
+    testRuntimeOnly('net.bytebuddy:byte-buddy:1.18.15')
+    testRuntimeOnly('org.objenesis:objenesis:3.6')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+}
+
+test {
+    useJUnitPlatform()
+}
