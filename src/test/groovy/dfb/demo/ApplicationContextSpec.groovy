@@ -22,6 +22,8 @@ class ApplicationContextSpec extends Specification {
         context.fooService != null
         context.gooRepository != null
         context.gooService != null
+        context.authorRepository != null
+        context.bookRepository != null
         context.fooController != null
         context.controllers == [context.fooController]
 

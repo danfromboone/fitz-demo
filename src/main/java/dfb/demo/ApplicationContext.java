@@ -31,6 +31,9 @@ public class ApplicationContext implements ServletContextListener {
     private final GooRepository gooRepository;
     private final GooService gooService;
 
+    private final AuthorRepository authorRepository;
+    private final BookRepository bookRepository;
+
     private final FooController fooController;
 
     private final List<Controller> controllers;
@@ -55,6 +58,9 @@ public class ApplicationContext implements ServletContextListener {
         this.fooService = new FooService(fooRepository);
         this.gooRepository = new GooRepository(dataContext.getDataSource());
         this.gooService = new GooService(gooRepository);
+
+        this.authorRepository = new AuthorRepository(dataContext.getDataSource());
+        this.bookRepository = new BookRepository(dataContext.getDataSource(), this.authorRepository);
 
         this.fooController = new FooController(fooService);
         this.controllers = List.of(fooController);
