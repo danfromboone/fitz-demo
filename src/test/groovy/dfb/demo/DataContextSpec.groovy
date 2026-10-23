@@ -120,6 +120,73 @@ class DataContextSpec extends Specification {
         pollingSource.close()
     }
 
+    def "executes Liquibase migrations on initialization creating schema tables when valid JDBC database is configured"() {
+        given:
+        def h2Url = "jdbc:h2:mem:liquibase_test_" + System.nanoTime() + ";DB_CLOSE_DELAY=-1"
+        def props = [
+                "database.url"     : h2Url,
+                "database.username": "sa",
+                "database.password": "sa"
+        ]
+        PropertySource mapSource = { -> new LinkedHashMap<>(props) } as PropertySource
+        def pollingSource = new PollingPropertySource(mapSource, Duration.ofMinutes(1))
+
+        when:
+        def dataContext = new DataContext(pollingSource)
+
+        then:
+        def connection = dataContext.dataSource.connection
+        def metaData = connection.metaData
+        def tables = []
+        try (def rs = metaData.getTables(null, null, "%", ["TABLE"] as String[])) {
+            while (rs.next()) {
+                tables << rs.getString("TABLE_NAME").toUpperCase()
+            }
+        }
+        connection.close()
+
+        tables.contains("FOO")
+        tables.contains("GOO")
+        tables.contains("DATABASECHANGELOG")
+
+        cleanup:
+        dataContext.close()
+        pollingSource.close()
+    }
+
+    def "skips Liquibase when liquibase.enabled is set to false"() {
+        given:
+        def h2Url = "jdbc:h2:mem:liquibase_disabled_test_" + System.nanoTime() + ";DB_CLOSE_DELAY=-1"
+        def props = [
+                "database.url"     : h2Url,
+                "database.username": "sa",
+                "database.password": "sa",
+                "liquibase.enabled": "false"
+        ]
+        PropertySource mapSource = { -> new LinkedHashMap<>(props) } as PropertySource
+        def pollingSource = new PollingPropertySource(mapSource, Duration.ofMinutes(1))
+
+        when:
+        def dataContext = new DataContext(pollingSource)
+
+        then:
+        def connection = dataContext.dataSource.connection
+        def metaData = connection.metaData
+        def tables = []
+        try (def rs = metaData.getTables(null, null, "%", ["TABLE"] as String[])) {
+            while (rs.next()) {
+                tables << rs.getString("TABLE_NAME").toUpperCase()
+            }
+        }
+        connection.close()
+
+        !tables.contains("DATABASECHANGELOG")
+
+        cleanup:
+        dataContext.close()
+        pollingSource.close()
+    }
+
     def "DatabaseConfig trims arguments and rejects null or blank values"() {
         when:
         def config = new DatabaseConfig("  jdbc://goo/bar  ", "  goo  ", "  goopassword  ")

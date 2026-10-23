@@ -156,7 +156,7 @@ class DispatcherServletIntegrationSpec extends Specification {
         then:
         1 * response.setStatus(500)
         1 * response.addHeader("Content-Type", "text/plain; charset=UTF-8")
-        outputBuffer.toString(StandardCharsets.UTF_8) == "Database connection failed"
+        outputBuffer.toString(StandardCharsets.UTF_8) == "Internal Server Error"
     }
 
     private static class CapturingServletOutputStream extends ServletOutputStream {

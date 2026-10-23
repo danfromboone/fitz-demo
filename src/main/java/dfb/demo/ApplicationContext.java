@@ -1,14 +1,14 @@
 package dfb.demo;
 
 import dfb.fitz.Closeables;
-import dfb.fitz.web.Controller;
-import dfb.fitz.web.DispatcherServlet;
 import dfb.fitz.property.CompositePropertySource;
 import dfb.fitz.property.DecryptingPropertySource;
 import dfb.fitz.property.FilePropertySource;
 import dfb.fitz.property.MutablePropertySource;
 import dfb.fitz.property.PollingPropertySource;
 import dfb.fitz.property.PropertySource;
+import dfb.fitz.web.Controller;
+import dfb.fitz.web.DispatcherServlet;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.ServletRegistration;
