@@ -31,9 +31,12 @@ class FooControllerSpec extends Specification {
         HttpMethod.GET  | "http://localhost:8080/foo/bar"  | null      | false
     }
 
-    def "canHandle returns false for null request"() {
-        expect:
-        !controller.canHandle(null)
+    def "canHandle throws NullPointerException for null request"() {
+        when:
+        controller.canHandle(null)
+
+        then:
+        thrown(NullPointerException)
     }
 
     def "handle returns 200 OK response containing decoded query parameters"() {

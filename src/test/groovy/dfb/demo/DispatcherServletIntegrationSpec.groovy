@@ -39,7 +39,7 @@ class DispatcherServletIntegrationSpec extends Specification {
         dispatcherServlet.service(request, response)
 
         then:
-        dispatcherServlet.controllers.size() == 1
+        dispatcherServlet.controllers.size() == 3
         1 * response.setStatus(200)
         outputBuffer.toString(StandardCharsets.UTF_8) == "Request params: {user=[alice]}"
     }

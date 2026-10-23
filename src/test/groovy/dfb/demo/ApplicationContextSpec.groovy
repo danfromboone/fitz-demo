@@ -25,7 +25,9 @@ class ApplicationContextSpec extends Specification {
         context.authorRepository != null
         context.bookRepository != null
         context.fooController != null
-        context.controllers == [context.fooController]
+        context.bookController != null
+        context.authorController != null
+        context.controllers == [context.fooController, context.bookController, context.authorController]
 
         cleanup:
         context.contextDestroyed(null)

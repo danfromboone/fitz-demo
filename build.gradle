@@ -30,6 +30,7 @@ dependencies {
     implementation('dfb:fitz:1.0-SNAPSHOT')
     implementation('com.h2database:h2:2.5.252')
     implementation('org.liquibase:liquibase-core:4.31.1')
+    implementation('com.fasterxml.jackson.core:jackson-databind:2.18.2')
 
     compileOnly("org.projectlombok:lombok:${lombokVersion}")
     annotationProcessor("org.projectlombok:lombok:${lombokVersion}")

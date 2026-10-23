@@ -35,6 +35,8 @@ public class ApplicationContext implements ServletContextListener {
     private final BookRepository bookRepository;
 
     private final FooController fooController;
+    private final BookController bookController;
+    private final AuthorController authorController;
 
     private final List<Controller> controllers;
 
@@ -63,7 +65,9 @@ public class ApplicationContext implements ServletContextListener {
         this.bookRepository = new BookRepository(dataContext.getDataSource(), this.authorRepository);
 
         this.fooController = new FooController(fooService);
-        this.controllers = List.of(fooController);
+        this.bookController = new BookController(bookRepository);
+        this.authorController = new AuthorController(authorRepository);
+        this.controllers = List.of(fooController, bookController, authorController);
         this.dispatcherServlet = new DispatcherServlet(this.controllers);
     }
 
