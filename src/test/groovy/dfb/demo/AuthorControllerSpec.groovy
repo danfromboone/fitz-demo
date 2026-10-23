@@ -1,6 +1,7 @@
 package dfb.demo
 
-import dfb.demo.domain.Author
+import com.fasterxml.jackson.databind.ObjectMapper
+import dfb.demo.web.RestResponses
 import dfb.fitz.http.HttpHeaders
 import dfb.fitz.http.HttpMethod
 import dfb.fitz.http.HttpRequest
@@ -17,7 +18,10 @@ class AuthorControllerSpec extends Specification {
 
     DataContext dataContext
     AuthorRepository authorRepository
-    AuthorController controller
+    GetAuthorsController getAuthorsController
+    GetAuthorByNameController getAuthorByNameController
+    CreateAuthorController createAuthorController
+    DeleteAuthorController deleteAuthorController
 
     def setup() {
         def h2Url = "jdbc:h2:mem:author_ctrl_test_" + System.nanoTime() + ";DB_CLOSE_DELAY=-1"
@@ -31,24 +35,35 @@ class AuthorControllerSpec extends Specification {
 
         dataContext = new DataContext(pollingSource)
         authorRepository = new AuthorRepository(dataContext.dataSource)
-        controller = new AuthorController(authorRepository)
+        def restResponses = new RestResponses(new ObjectMapper())
+        getAuthorsController = new GetAuthorsController(authorRepository, restResponses)
+        getAuthorByNameController = new GetAuthorByNameController(authorRepository, restResponses)
+        createAuthorController = new CreateAuthorController(authorRepository, restResponses)
+        deleteAuthorController = new DeleteAuthorController(authorRepository, restResponses)
     }
 
     def cleanup() {
         dataContext?.close()
     }
 
-    def "canHandle recognizes /authors and /authors/{name} endpoints"() {
+    def "canHandle routes requests to specific endpoint controllers"() {
         expect:
-        controller.canHandle(new HttpRequest(HttpMethod.GET, "/authors"))
-        controller.canHandle(new HttpRequest(HttpMethod.POST, "/authors"))
-        controller.canHandle(new HttpRequest(HttpMethod.GET, "/authors/Martin%20Fowler"))
-        controller.canHandle(new HttpRequest(HttpMethod.DELETE, "/authors/Kent%20Beck"))
-        controller.canHandle(new HttpRequest(HttpMethod.GET, "/demo/authors"))
-        !controller.canHandle(new HttpRequest(HttpMethod.GET, "/books"))
+        getAuthorsController.canHandle(new HttpRequest(HttpMethod.GET, "/authors"))
+        !getAuthorsController.canHandle(new HttpRequest(HttpMethod.POST, "/authors"))
+        !getAuthorsController.canHandle(new HttpRequest(HttpMethod.GET, "/authors/Martin%20Fowler"))
+
+        getAuthorByNameController.canHandle(new HttpRequest(HttpMethod.GET, "/authors/Martin%20Fowler"))
+        !getAuthorByNameController.canHandle(new HttpRequest(HttpMethod.GET, "/authors"))
+        !getAuthorByNameController.canHandle(new HttpRequest(HttpMethod.DELETE, "/authors/Martin%20Fowler"))
+
+        createAuthorController.canHandle(new HttpRequest(HttpMethod.POST, "/authors"))
+        !createAuthorController.canHandle(new HttpRequest(HttpMethod.GET, "/authors"))
+
+        deleteAuthorController.canHandle(new HttpRequest(HttpMethod.DELETE, "/authors/Kent%20Beck"))
+        !deleteAuthorController.canHandle(new HttpRequest(HttpMethod.GET, "/authors/Kent%20Beck"))
 
         when: "null request is passed"
-        controller.canHandle(null)
+        getAuthorsController.canHandle(null)
 
         then: "blows up with NullPointerException"
         thrown(NullPointerException)
@@ -56,7 +71,7 @@ class AuthorControllerSpec extends Specification {
 
     def "handles complete REST lifecycle for authors"() {
         when: "getting all authors initially"
-        def emptyResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/authors"))
+        def emptyResponse = getAuthorsController.handle(new HttpRequest(HttpMethod.GET, "/authors"))
 
         then:
         emptyResponse.statusCode == HttpStatus.OK
@@ -69,7 +84,7 @@ class AuthorControllerSpec extends Specification {
                 new HttpHeaders(),
                 new HttpRequestBody('{"name":"Martin Fowler"}')
         )
-        def createResponse = controller.handle(postReq)
+        def createResponse = createAuthorController.handle(postReq)
 
         then:
         createResponse.statusCode == HttpStatus.CREATED
@@ -77,33 +92,33 @@ class AuthorControllerSpec extends Specification {
         authorRepository.existsByName("Martin Fowler")
 
         when: "attempting to create duplicate author"
-        def duplicateResponse = controller.handle(postReq)
+        def duplicateResponse = createAuthorController.handle(postReq)
 
         then:
         duplicateResponse.statusCode == HttpStatus.CONFLICT
 
         when: "getting existing author by name"
-        def getResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/authors/Martin%20Fowler"))
+        def getResponse = getAuthorByNameController.handle(new HttpRequest(HttpMethod.GET, "/authors/Martin%20Fowler"))
 
         then:
         getResponse.statusCode == HttpStatus.OK
         getResponse.body.asString().contains('"name":"Martin Fowler"')
 
         when: "getting non-existent author"
-        def notFoundResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/authors/Unknown"))
+        def notFoundResponse = getAuthorByNameController.handle(new HttpRequest(HttpMethod.GET, "/authors/Unknown"))
 
         then:
         notFoundResponse.statusCode == HttpStatus.NOT_FOUND
 
         when: "deleting existing author"
-        def deleteResponse = controller.handle(new HttpRequest(HttpMethod.DELETE, "/authors/Martin%20Fowler"))
+        def deleteResponse = deleteAuthorController.handle(new HttpRequest(HttpMethod.DELETE, "/authors/Martin%20Fowler"))
 
         then:
         deleteResponse.statusCode == HttpStatus.NO_CONTENT
         !authorRepository.existsByName("Martin Fowler")
 
         when: "deleting already deleted author"
-        def deleteAgainResponse = controller.handle(new HttpRequest(HttpMethod.DELETE, "/authors/Martin%20Fowler"))
+        def deleteAgainResponse = deleteAuthorController.handle(new HttpRequest(HttpMethod.DELETE, "/authors/Martin%20Fowler"))
 
         then:
         deleteAgainResponse.statusCode == HttpStatus.NOT_FOUND
@@ -111,13 +126,13 @@ class AuthorControllerSpec extends Specification {
 
     def "handles invalid requests gracefully"() {
         when: "POST with empty body"
-        def emptyPost = controller.handle(new HttpRequest(HttpMethod.POST, "/authors"))
+        def emptyPost = createAuthorController.handle(new HttpRequest(HttpMethod.POST, "/authors"))
 
         then:
         emptyPost.statusCode == HttpStatus.BAD_REQUEST
 
         when: "POST with blank author name"
-        def blankNamePost = controller.handle(new HttpRequest(
+        def blankNamePost = createAuthorController.handle(new HttpRequest(
                 HttpMethod.POST,
                 new HttpUri("/authors"),
                 new HttpHeaders(),

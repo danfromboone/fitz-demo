@@ -1,5 +1,7 @@
 package dfb.demo
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import dfb.demo.web.RestResponses
 import dfb.fitz.http.HttpHeaders
 import dfb.fitz.http.HttpMethod
 import dfb.fitz.http.HttpRequest
@@ -17,7 +19,11 @@ class BookControllerSpec extends Specification {
     DataContext dataContext
     AuthorRepository authorRepository
     BookRepository bookRepository
-    BookController controller
+    GetBooksController getBooksController
+    GetBookByCodeController getBookByCodeController
+    CreateBookController createBookController
+    UpdateBookController updateBookController
+    DeleteBookController deleteBookController
 
     def setup() {
         def h2Url = "jdbc:h2:mem:book_ctrl_test_" + System.nanoTime() + ";DB_CLOSE_DELAY=-1"
@@ -32,25 +38,40 @@ class BookControllerSpec extends Specification {
         dataContext = new DataContext(pollingSource)
         authorRepository = new AuthorRepository(dataContext.dataSource)
         bookRepository = new BookRepository(dataContext.dataSource, authorRepository)
-        controller = new BookController(bookRepository)
+        def restResponses = new RestResponses(new ObjectMapper())
+
+        getBooksController = new GetBooksController(bookRepository, restResponses)
+        getBookByCodeController = new GetBookByCodeController(bookRepository, restResponses)
+        createBookController = new CreateBookController(bookRepository, restResponses)
+        updateBookController = new UpdateBookController(bookRepository, restResponses)
+        deleteBookController = new DeleteBookController(bookRepository, restResponses)
     }
 
     def cleanup() {
         dataContext?.close()
     }
 
-    def "canHandle recognizes /books and /books/{code} endpoints"() {
+    def "canHandle routes requests to specific endpoint controllers"() {
         expect:
-        controller.canHandle(new HttpRequest(HttpMethod.GET, "/books"))
-        controller.canHandle(new HttpRequest(HttpMethod.POST, "/books"))
-        controller.canHandle(new HttpRequest(HttpMethod.GET, "/books/ISBN-123"))
-        controller.canHandle(new HttpRequest(HttpMethod.PUT, "/books/ISBN-123"))
-        controller.canHandle(new HttpRequest(HttpMethod.DELETE, "/books/ISBN-123"))
-        controller.canHandle(new HttpRequest(HttpMethod.GET, "/demo/books"))
-        !controller.canHandle(new HttpRequest(HttpMethod.GET, "/authors"))
+        getBooksController.canHandle(new HttpRequest(HttpMethod.GET, "/books"))
+        !getBooksController.canHandle(new HttpRequest(HttpMethod.POST, "/books"))
+        !getBooksController.canHandle(new HttpRequest(HttpMethod.GET, "/books/ISBN-123"))
+
+        getBookByCodeController.canHandle(new HttpRequest(HttpMethod.GET, "/books/ISBN-123"))
+        !getBookByCodeController.canHandle(new HttpRequest(HttpMethod.GET, "/books"))
+        !getBookByCodeController.canHandle(new HttpRequest(HttpMethod.PUT, "/books/ISBN-123"))
+
+        createBookController.canHandle(new HttpRequest(HttpMethod.POST, "/books"))
+        !createBookController.canHandle(new HttpRequest(HttpMethod.GET, "/books"))
+
+        updateBookController.canHandle(new HttpRequest(HttpMethod.PUT, "/books/ISBN-123"))
+        !updateBookController.canHandle(new HttpRequest(HttpMethod.GET, "/books/ISBN-123"))
+
+        deleteBookController.canHandle(new HttpRequest(HttpMethod.DELETE, "/books/ISBN-123"))
+        !deleteBookController.canHandle(new HttpRequest(HttpMethod.GET, "/books/ISBN-123"))
 
         when: "null request is passed"
-        controller.canHandle(null)
+        getBooksController.canHandle(null)
 
         then: "blows up with NullPointerException"
         thrown(NullPointerException)
@@ -58,7 +79,7 @@ class BookControllerSpec extends Specification {
 
     def "handles complete REST lifecycle for books with authors"() {
         when: "getting all books initially"
-        def emptyResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/books"))
+        def emptyResponse = getBooksController.handle(new HttpRequest(HttpMethod.GET, "/books"))
 
         then:
         emptyResponse.statusCode == HttpStatus.OK
@@ -71,7 +92,7 @@ class BookControllerSpec extends Specification {
                 new HttpHeaders(),
                 new HttpRequestBody('{"code":"ISBN-01","title":"Clean Code","authors":["Robert C. Martin"]}')
         )
-        def createResponse = controller.handle(postReq)
+        def createResponse = createBookController.handle(postReq)
 
         then:
         createResponse.statusCode == HttpStatus.CREATED
@@ -82,26 +103,26 @@ class BookControllerSpec extends Specification {
         authorRepository.existsByName("Robert C. Martin")
 
         when: "creating duplicate book returns 409 CONFLICT"
-        def duplicateResponse = controller.handle(postReq)
+        def duplicateResponse = createBookController.handle(postReq)
 
         then:
         duplicateResponse.statusCode == HttpStatus.CONFLICT
 
         when: "getting existing book by code"
-        def getResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/books/ISBN-01"))
+        def getResponse = getBookByCodeController.handle(new HttpRequest(HttpMethod.GET, "/books/ISBN-01"))
 
         then:
         getResponse.statusCode == HttpStatus.OK
         getResponse.body.asString().contains('"title":"Clean Code"')
 
         when: "getting non-existent book"
-        def notFoundResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/books/NON-EXISTENT"))
+        def notFoundResponse = getBookByCodeController.handle(new HttpRequest(HttpMethod.GET, "/books/NON-EXISTENT"))
 
         then:
         notFoundResponse.statusCode == HttpStatus.NOT_FOUND
 
         when: "creating another book with multiple authors"
-        controller.handle(new HttpRequest(
+        createBookController.handle(new HttpRequest(
                 HttpMethod.POST,
                 new HttpUri("/books"),
                 new HttpHeaders(),
@@ -109,7 +130,7 @@ class BookControllerSpec extends Specification {
         ))
 
         and: "querying all books"
-        def allResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/books"))
+        def allResponse = getBooksController.handle(new HttpRequest(HttpMethod.GET, "/books"))
 
         then:
         allResponse.statusCode == HttpStatus.OK
@@ -117,7 +138,7 @@ class BookControllerSpec extends Specification {
         allResponse.body.asString().contains('"ISBN-02"')
 
         when: "filtering books by author"
-        def filterResponse = controller.handle(new HttpRequest(HttpMethod.GET, "/books?author=Kent%20Beck"))
+        def filterResponse = getBooksController.handle(new HttpRequest(HttpMethod.GET, "/books?author=Kent%20Beck"))
 
         then:
         filterResponse.statusCode == HttpStatus.OK
@@ -131,7 +152,7 @@ class BookControllerSpec extends Specification {
                 new HttpHeaders(),
                 new HttpRequestBody('{"title":"Clean Code: A Handbook of Agile Software Craftsmanship","authors":["Robert C. Martin","Dean Wampler"]}')
         )
-        def updateResponse = controller.handle(putReq)
+        def updateResponse = updateBookController.handle(putReq)
 
         then:
         updateResponse.statusCode == HttpStatus.OK
@@ -139,7 +160,7 @@ class BookControllerSpec extends Specification {
         authorRepository.existsByName("Dean Wampler")
 
         when: "updating non-existent book"
-        def putNotFound = controller.handle(new HttpRequest(
+        def putNotFound = updateBookController.handle(new HttpRequest(
                 HttpMethod.PUT,
                 new HttpUri("/books/MISSING"),
                 new HttpHeaders(),
@@ -150,14 +171,14 @@ class BookControllerSpec extends Specification {
         putNotFound.statusCode == HttpStatus.NOT_FOUND
 
         when: "deleting existing book"
-        def deleteResponse = controller.handle(new HttpRequest(HttpMethod.DELETE, "/books/ISBN-01"))
+        def deleteResponse = deleteBookController.handle(new HttpRequest(HttpMethod.DELETE, "/books/ISBN-01"))
 
         then:
         deleteResponse.statusCode == HttpStatus.NO_CONTENT
         !bookRepository.existsByCode("ISBN-01")
 
         when: "deleting non-existent book"
-        def deleteAgain = controller.handle(new HttpRequest(HttpMethod.DELETE, "/books/ISBN-01"))
+        def deleteAgain = deleteBookController.handle(new HttpRequest(HttpMethod.DELETE, "/books/ISBN-01"))
 
         then:
         deleteAgain.statusCode == HttpStatus.NOT_FOUND
@@ -165,13 +186,13 @@ class BookControllerSpec extends Specification {
 
     def "validates request payload and rejects invalid inputs"() {
         when: "POST with empty body"
-        def emptyBody = controller.handle(new HttpRequest(HttpMethod.POST, "/books"))
+        def emptyBody = createBookController.handle(new HttpRequest(HttpMethod.POST, "/books"))
 
         then:
         emptyBody.statusCode == HttpStatus.BAD_REQUEST
 
         when: "POST with missing title"
-        def missingTitle = controller.handle(new HttpRequest(
+        def missingTitle = createBookController.handle(new HttpRequest(
                 HttpMethod.POST,
                 new HttpUri("/books"),
                 new HttpHeaders(),
@@ -182,7 +203,7 @@ class BookControllerSpec extends Specification {
         missingTitle.statusCode == HttpStatus.BAD_REQUEST
 
         when: "POST with zero authors"
-        def noAuthors = controller.handle(new HttpRequest(
+        def noAuthors = createBookController.handle(new HttpRequest(
                 HttpMethod.POST,
                 new HttpUri("/books"),
                 new HttpHeaders(),
@@ -193,7 +214,7 @@ class BookControllerSpec extends Specification {
         noAuthors.statusCode == HttpStatus.BAD_REQUEST
 
         when: "POST with malformed JSON"
-        def malformed = controller.handle(new HttpRequest(
+        def malformed = createBookController.handle(new HttpRequest(
                 HttpMethod.POST,
                 new HttpUri("/books"),
                 new HttpHeaders(),

@@ -13,6 +13,8 @@ class ApplicationContextSpec extends Specification {
         def context = new ApplicationContext()
 
         expect:
+        context.objectMapper != null
+        context.restResponses != null
         context.propertySource != null
         context.dataContext != null
         (context.dataContext.dataSource as MutableDataSource).databaseConfig.url == "jdbc://goo/bar"
@@ -25,9 +27,28 @@ class ApplicationContextSpec extends Specification {
         context.authorRepository != null
         context.bookRepository != null
         context.fooController != null
-        context.bookController != null
-        context.authorController != null
-        context.controllers == [context.fooController, context.bookController, context.authorController]
+        context.getBooksController != null
+        context.getBookByCodeController != null
+        context.createBookController != null
+        context.updateBookController != null
+        context.deleteBookController != null
+        context.getAuthorsController != null
+        context.getAuthorByNameController != null
+        context.createAuthorController != null
+        context.deleteAuthorController != null
+        context.controllers.size() == 10
+        context.controllers == [
+                context.fooController,
+                context.getBooksController,
+                context.getBookByCodeController,
+                context.createBookController,
+                context.updateBookController,
+                context.deleteBookController,
+                context.getAuthorsController,
+                context.getAuthorByNameController,
+                context.createAuthorController,
+                context.deleteAuthorController
+        ]
 
         cleanup:
         context.contextDestroyed(null)
@@ -60,5 +81,11 @@ class ApplicationContextSpec extends Specification {
         1 * servletContext.addServlet("dispatcherServlet", { it.is(context.dispatcherServlet) }) >> registration
         1 * registration.setLoadOnStartup(1)
         1 * registration.addMapping("/")
+    }
+
+    def "has only one constructor which is no-arg"() {
+        expect:
+        ApplicationContext.constructors.length == 1
+        ApplicationContext.constructors[0].parameterCount == 0
     }
 }

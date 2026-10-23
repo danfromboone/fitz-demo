@@ -1,5 +1,7 @@
 package dfb.demo;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dfb.demo.web.RestResponses;
 import dfb.fitz.Closeables;
 import dfb.fitz.property.CompositePropertySource;
 import dfb.fitz.property.DecryptingPropertySource;
@@ -24,6 +26,9 @@ public class ApplicationContext implements ServletContextListener {
 
     private final MutablePropertySource propertySource;
 
+    private final ObjectMapper objectMapper;
+    private final RestResponses restResponses;
+
     private final DataContext dataContext;
     private final FooRepository fooRepository;
     private final FooService fooService;
@@ -35,14 +40,26 @@ public class ApplicationContext implements ServletContextListener {
     private final BookRepository bookRepository;
 
     private final FooController fooController;
-    private final BookController bookController;
-    private final AuthorController authorController;
+
+    private final GetBooksController getBooksController;
+    private final GetBookByCodeController getBookByCodeController;
+    private final CreateBookController createBookController;
+    private final UpdateBookController updateBookController;
+    private final DeleteBookController deleteBookController;
+
+    private final GetAuthorsController getAuthorsController;
+    private final GetAuthorByNameController getAuthorByNameController;
+    private final CreateAuthorController createAuthorController;
+    private final DeleteAuthorController deleteAuthorController;
 
     private final List<Controller> controllers;
 
     private final DispatcherServlet dispatcherServlet;
 
     public ApplicationContext() {
+        this.objectMapper = new ObjectMapper();
+        this.restResponses = new RestResponses(this.objectMapper);
+
         PropertySource defaultProperties = new FilePropertySource("default.properties");
         PropertySource localProperties = new PollingPropertySource(
                 new FilePropertySource("local.properties"),
@@ -65,9 +82,30 @@ public class ApplicationContext implements ServletContextListener {
         this.bookRepository = new BookRepository(dataContext.getDataSource(), this.authorRepository);
 
         this.fooController = new FooController(fooService);
-        this.bookController = new BookController(bookRepository);
-        this.authorController = new AuthorController(authorRepository);
-        this.controllers = List.of(fooController, bookController, authorController);
+
+        this.getBooksController = new GetBooksController(bookRepository, this.restResponses);
+        this.getBookByCodeController = new GetBookByCodeController(bookRepository, this.restResponses);
+        this.createBookController = new CreateBookController(bookRepository, this.restResponses);
+        this.updateBookController = new UpdateBookController(bookRepository, this.restResponses);
+        this.deleteBookController = new DeleteBookController(bookRepository, this.restResponses);
+
+        this.getAuthorsController = new GetAuthorsController(authorRepository, this.restResponses);
+        this.getAuthorByNameController = new GetAuthorByNameController(authorRepository, this.restResponses);
+        this.createAuthorController = new CreateAuthorController(authorRepository, this.restResponses);
+        this.deleteAuthorController = new DeleteAuthorController(authorRepository, this.restResponses);
+
+        this.controllers = List.of(
+                fooController,
+                getBooksController,
+                getBookByCodeController,
+                createBookController,
+                updateBookController,
+                deleteBookController,
+                getAuthorsController,
+                getAuthorByNameController,
+                createAuthorController,
+                deleteAuthorController
+        );
         this.dispatcherServlet = new DispatcherServlet(this.controllers);
     }
 
