@@ -48,11 +48,6 @@ public class DataContext implements AutoCloseable {
             return;
         }
 
-        DatabaseConfig config = dataSource.getDatabaseConfig();
-        if (config == null || config.getUrl() == null || config.getUrl().contains("://")) {
-            log.info("code=LIQUIBASE_SKIPPED reason=NON_STANDARD_OR_DUMMY_URL url={}", (Object) (config != null ? config.getUrl() : null));
-            return;
-        }
 
         String changelog = getProperty("liquibase.change-log", "liquibase.changelog");
         if (changelog == null || changelog.isBlank()) {
@@ -75,11 +70,25 @@ public class DataContext implements AutoCloseable {
         String url = getProperty("database.url", "datasource.url");
         String user = getProperty("database.username", "datasource.username", "database.user", "datasource.user");
         String pass = getProperty("database.password", "datasource.password");
+        String driver = getProperty(
+                "database.driver-class-name", "datasource.driver-class-name",
+                "database.driverClassName", "datasource.driverClassName"
+        );
 
         if (url != null && !url.isBlank()) {
-            return new DatabaseConfig(url, user != null ? user : "sa", pass != null ? pass : "sa");
+            return DatabaseConfig.builder()
+                    .url(url)
+                    .userName(user != null ? user : "sa")
+                    .password(pass != null ? pass : "sa")
+                    .driverClassName(driver)
+                    .build();
         }
-        return new DatabaseConfig("jdbc:h2:mem:fitzdemo;DB_CLOSE_DELAY=-1", "sa", "sa");
+        return DatabaseConfig.builder()
+                .url("jdbc:h2:mem:fitzdemo;DB_CLOSE_DELAY=-1")
+                .userName("sa")
+                .password("sa")
+                .driverClassName(driver)
+                .build();
     }
 
     private String getProperty(String... keys) {
