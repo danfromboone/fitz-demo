@@ -48,6 +48,11 @@ public class DataContext implements AutoCloseable {
             return;
         }
 
+        DatabaseConfig config = dataSource.getDatabaseConfig();
+        if (config == null || config.getUrl() == null || !config.getUrl().matches("^jdbc:[a-zA-Z0-9_]+:.*")) {
+            log.info("code=LIQUIBASE_SKIPPED reason=INVALID_OR_DUMMY_URL url={}", (Object) (config != null ? config.getUrl() : null));
+            return;
+        }
 
         String changelog = getProperty("liquibase.change-log", "liquibase.changelog");
         if (changelog == null || changelog.isBlank()) {

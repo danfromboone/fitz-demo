@@ -41,7 +41,7 @@ public class ApplicationContext implements ServletContextListener {
         PropertySource defaultProperties = new FilePropertySource("default.properties");
         PropertySource localProperties = new PollingPropertySource(
                 new FilePropertySource("local.properties"),
-                Duration.ofSeconds(5)
+                Duration.ofSeconds(600)
         );
         CompositePropertySource compositePropertySource = new CompositePropertySource(
                 defaultProperties,
