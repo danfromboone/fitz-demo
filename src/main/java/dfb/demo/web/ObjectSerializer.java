@@ -11,6 +11,13 @@ public class ObjectSerializer {
     private final ObjectMapper objectMapper;
 
     /**
+     * Creates a new {@code ObjectSerializer} using a default {@link ObjectMapper}.
+     */
+    public ObjectSerializer() {
+        this(new ObjectMapper());
+    }
+
+    /**
      * Creates a new {@code ObjectSerializer} with the specified object mapper.
      *
      * @param objectMapper the object mapper instance (must not be null)

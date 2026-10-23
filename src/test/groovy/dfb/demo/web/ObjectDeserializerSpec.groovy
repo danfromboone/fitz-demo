@@ -9,6 +9,18 @@ import java.lang.reflect.Modifier
 
 class ObjectDeserializerSpec extends Specification {
 
+    def "creates instance with default no-arg constructor assigning new ObjectMapper"() {
+        given:
+        def deserializer = new ObjectDeserializer()
+        def json = '{"name":"Kent Beck"}'
+
+        when:
+        AuthorDto dto = deserializer.deserialize(json, AuthorDto)
+
+        then:
+        dto.name() == "Kent Beck"
+    }
+
     def "throws NullPointerException if ObjectMapper is null"() {
         when:
         new ObjectDeserializer(null)

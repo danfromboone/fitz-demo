@@ -11,6 +11,13 @@ public class ObjectDeserializer {
     private final ObjectMapper objectMapper;
 
     /**
+     * Creates a new {@code ObjectDeserializer} using a default {@link ObjectMapper}.
+     */
+    public ObjectDeserializer() {
+        this(new ObjectMapper());
+    }
+
+    /**
      * Creates a new {@code ObjectDeserializer} with the specified object mapper.
      *
      * @param objectMapper the object mapper instance (must not be null)
